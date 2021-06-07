@@ -47,20 +47,24 @@ class LoanManageController extends Controller
            $count = 0;
 
            $installments = [];
+           $principle_amount = floatval($loan->amount);
+           $r = $loanTerm->interest_rate / ($frequency[$loanTerm->frequency] * 100);
            while($count < $loanTerm->tenure) {
-            $principal_amount = floatval($loan->amount) - (floatval($loan->amount)/$loanTerm->tenure * $count);
-            $count++;
-            $balance_amount = $principal_amount - floatval($loan->amount)/$loanTerm->tenure;
-            $emi = floatval($loan->amount)/$loanTerm->tenure
-            + ($principal_amount * floatval($loanTerm->interest_rate)*$count)/(100*$frequency[$loanTerm->frequency]);
-            $installments[] = LoanInstallment::create([
-                'loan_id' => $loan->id,
-                'user_id' => $loan->user_id,
-                'loan_term_id' => $loanTerm->id,
-                'principal_amount' => round($principal_amount,2),
-                'emi' =>  round($emi,2),
-                'balance_amount' =>  round($balance_amount,2),
-            ]);
+               $i = ($principle_amount*$r)/$frequency[$loanTerm->frequency]*100;
+               $emi = ($principle_amount * $r * pow(1 + $r, $loanTerm->tenure-$count)) /
+                  (pow(1 + $r, $loanTerm->tenure-$count) - 1);
+
+                $balance_amount = $principle_amount - $emi + $i;
+                $count++;
+                $installments[] = LoanInstallment::create([
+                    'loan_id' => $loan->id,
+                    'user_id' => $loan->user_id,
+                    'loan_term_id' => $loanTerm->id,
+                    'principal_amount' => round($principle_amount,2),
+                    'emi' =>  round($emi,2),
+                    'balance_amount' =>  round($balance_amount,2),
+                ]);
+                $principle_amount = $balance_amount;
            }
            return ['loan' => $loan,'installments' => $installments];
         }, 4);
